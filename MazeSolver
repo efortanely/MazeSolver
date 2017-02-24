@@ -1,0 +1,182 @@
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Point;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.ArrayList;
+import javax.swing.JApplet;
+import javax.swing.Timer;
+
+//set userInputMaze to true to input a maze by dragging mouse, then input 2 clicks to begin
+public class MazeSolver extends JApplet implements MouseListener, MouseMotionListener{
+	boolean userInputMaze = false;
+	static final long serialVersionUID = 1L;
+	Timer timer;
+	ActionListener listener;
+	ArrayList<Point> path = new ArrayList<Point>();
+	int size = 40, seed = 1352, red = 255, green, blue, input = 0, inputMazeX, inputMazeY, ri, ci, rf, cf, xScl, yScl, pathStep, colScl;
+	double delayInSeconds = .01;
+	boolean animateMotion, pointInitialized, inputMaze;
+	Color fade = new Color(red,green,blue);
+	int[][] numSteps = new int[size][size];
+	
+	@Override
+	public void init(){
+		addMouseListener(this);
+		addMouseMotionListener(this);
+		listener = new ActionListener() { @Override public void actionPerformed(ActionEvent e) { animateMotion = true; repaint(); } };    
+	    timer = new Timer((int) (delayInSeconds * 1000), listener);
+	    xScl = getWidth() / size;
+	    yScl = getHeight() / size;
+	}
+	
+	@Override
+	public void paint(Graphics g){
+		int steps = 1;
+		ArrayList<Point> recentGen = new ArrayList<Point>();
+		
+		if(animateMotion){
+			g.setColor(fade);
+			g.fillRect((int) path.get(pathStep).getX() * xScl, (int) path.get(pathStep).getY() * yScl, xScl, yScl);
+			red -= colScl;
+			blue += colScl;
+			fade = new Color(red,green,blue);
+			if(pathStep > 0) pathStep--;
+			else timer.stop();
+		}else if(pointInitialized){
+			//g.drawString(numSteps[ri][ci] + "", (ci * xScl) + 2, (ri * yScl) + 10);
+			
+			//initializes open blocks around goal with 1 step
+			for(int adj = -1; adj <= 1; adj += 2){ 
+				if(ri + adj >= 0 && ri + adj < size && numSteps[ri+adj][ci] == 0){
+					numSteps[ri+adj][ci]++;
+					//g.fillRect(ci * xScl, (ri + adj) * yScl, xScl, yScl);
+					//g.drawString(numSteps[ri+adj][ci] + "", (ci * xScl) + 5, ((ri + adj) * yScl) + 10);
+				}
+				if(ci + adj >= 0 && ci + adj < size && numSteps[ri][ci+adj] == 0){
+					numSteps[ri][ci+adj]++;
+					//g.fillRect((ci + adj) * xScl, ri * yScl, xScl, yScl);
+					//g.drawString(numSteps[ri][ci+adj] + "", ((ci + adj) * xScl) + 2, (ri * yScl) + 10);
+				}
+			}
+			
+			for(int it = 0; it < size * size; it++){
+				//temporarily stores coordinates with n steps
+				for(int i=0; i<size; i++){
+				for(int j=0; j<size; j++){ 
+					if(numSteps[i][j] == steps) recentGen.add(new Point (i,j));
+				} 
+				}
+				
+				steps++;
+				
+				//if adjacent blocks to n blocks are open, update them with n+1 steps
+				for(Point block: recentGen){ 
+				int x = (int) block.getX(), y = (int) block.getY();	
+				for(int adj = -1; adj <= 1; adj += 2){ 
+					if(x + adj >= 0 && x + adj < size && numSteps[x + adj][y] == 0 && !(x + adj == ri && y == ci)){ 
+						numSteps[x + adj][y] = steps;
+						//g.drawString(numSteps[x + adj][y] + "", (y * xScl) + 2, ((x + adj) * yScl) + 10);
+						
+					}
+					if(y + adj >= 0 && y + adj < size && numSteps[x][y + adj] == 0 && !(x == ri && y + adj == ci)){ 
+						numSteps[x][y + adj] = steps;
+						//g.drawString(numSteps[x][y + adj] + "", ((y + adj) * xScl) + 2, (x * yScl) + 10);
+						
+					}
+				} 
+				}
+				recentGen.clear();
+			}
+			
+			int r = rf;
+			int c = cf;
+			path.add(new Point(c, r));
+			for(int currentStep = numSteps[rf][cf]; currentStep > 0; currentStep--){
+				for(int adj = -1; adj <= 1; adj += 2){ 
+					if(r + adj >= 0 && r + adj < size && numSteps[r + adj][c] == currentStep - 1){
+						r += adj;
+						path.add(new Point(c, r));
+					}
+					if(c + adj >= 0 && c + adj < size && numSteps[r][c + adj] == currentStep - 1){
+						c += adj;
+						path.add(new Point(c, r));
+					}
+				}
+			}
+			pathStep = path.size() - 1;
+			colScl = (path.size() > 6)? 255/path.size() : 30;
+			if (path.size() > 1) timer.start();
+		}else if(userInputMaze && inputMaze){
+			g.setColor(Color.gray);
+			g.fillRect(inputMazeX, inputMazeY, xScl, yScl);
+		}else if(!userInputMaze){
+			g.setColor(Color.gray);
+			for(int r = 0; r < size; r++){ 
+			for(int c = 0; c < size; c++){ 
+				int numOnes = 0;
+				String binary = Integer.toBinaryString(c*c + 3*c + 2*c*r + r + r*r + seed); //binary form of seed equation
+				numOnes = binary.replaceAll("0", "").length(); //calculates # of 1's in binary string
+				if(numOnes % 2 == 0) numSteps[r][c] = 0; //if # of 1's is equal, block is open space
+				else{ //if # of 1's is odd, block is wall
+					numSteps[r][c] = -1; 
+					g.fillRect(c * xScl, r * yScl, xScl, yScl);
+				}
+			} 
+			}
+		}
+	}
+
+	@Override
+	public void mouseClicked(MouseEvent click) {
+		int inputX = click.getX();
+		int inputY = click.getY();
+		inputSearch: 
+		for(int x = 0; x < getWidth() - xScl; x += xScl){
+		for(int y = 0; y < getHeight() - yScl; y += yScl){
+			if( (inputX >= x && inputX < x + xScl) && (inputY >= y && inputY < y + yScl) ){
+				if(input % 2 == 0){
+					ri = y / yScl; 
+					ci = x / xScl;
+				}else{
+					rf = y / yScl; 
+					cf = x / xScl;
+				}
+				break inputSearch;
+			}
+		}
+		}
+		if(input % 2 != 0){
+			pointInitialized = true;
+			repaint();
+		}
+		input++;
+	}
+
+	@Override
+	public void mouseDragged(MouseEvent click) {
+		int inputX = click.getX();
+		int inputY = click.getY();
+		inputSearch: 
+		for(int x = 0; x < getWidth() - xScl; x += xScl){
+		for(int y = 0; y < getHeight() - yScl; y += yScl){
+			if( (inputX >= x && inputX < x + xScl) && (inputY >= y && inputY < y + yScl) ){
+				numSteps[y/yScl][x/xScl] = -1;
+				inputMazeX = x;
+				inputMazeY = y;
+				break inputSearch;
+			}
+		}
+		}
+		
+		if(inputMaze == false) inputMaze = true;
+		repaint();
+	}
+	
+	public void mouseEntered(MouseEvent arg0) {} public void mouseExited(MouseEvent arg0) {}	
+	public void mousePressed(MouseEvent arg0) {} public void mouseReleased(MouseEvent arg0) {}
+	public void mouseMoved(MouseEvent arg0) {}
+}
