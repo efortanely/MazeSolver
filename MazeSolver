@@ -10,120 +10,57 @@ import java.util.ArrayList;
 import javax.swing.JApplet;
 import javax.swing.Timer;
 
-//set userInputMaze to true to input a maze by dragging mouse, then input 2 clicks to begin
-public class MazeSolver extends JApplet implements MouseListener, MouseMotionListener{
+public class MazeSolver extends JApplet implements ActionListener, MouseListener, MouseMotionListener{
+	private static final long serialVersionUID = 1L;
 	boolean userInputMaze = false;
-	static final long serialVersionUID = 1L;
-	Timer timer;
-	ActionListener listener;
 	ArrayList<Point> path = new ArrayList<Point>();
-	int size = 40, seed = 1352, red = 255, green, blue, input = 0, inputMazeX, inputMazeY, ri, ci, rf, cf, xScl, yScl, pathStep, colScl;
+	int size = 20, seed = 1352, red = 255, green, blue, input = 0, pathStep;
+	int[] mazePt = {0,0}, pi = {0,0}, pf = {0,0};
 	double delayInSeconds = .01;
 	boolean animateMotion, pointInitialized, inputMaze;
-	Color fade = new Color(red,green,blue);
-	int[][] numSteps = new int[size][size];
+	int[][] numSteps;
 	
 	@Override
 	public void init(){
 		addMouseListener(this);
 		addMouseMotionListener(this);
-		listener = new ActionListener() { @Override public void actionPerformed(ActionEvent e) { animateMotion = true; repaint(); } };    
-	    timer = new Timer((int) (delayInSeconds * 1000), listener);
-	    xScl = getWidth() / size;
-	    yScl = getHeight() / size;
+	    numSteps = new int[getHeight()/size][getWidth()/size];
+	}
+	
+	public void actionPerformed(ActionEvent e){ 
+		animateMotion = true; 
+		repaint(); 
 	}
 	
 	@Override
 	public void paint(Graphics g){
-		int steps = 1;
-		ArrayList<Point> recentGen = new ArrayList<Point>();
-		
 		if(animateMotion){
-			g.setColor(fade);
-			g.fillRect((int) path.get(pathStep).getX() * xScl, (int) path.get(pathStep).getY() * yScl, xScl, yScl);
-			red -= colScl;
-			blue += colScl;
-			fade = new Color(red,green,blue);
-			if(pathStep > 0) pathStep--;
-			else timer.stop();
+			int colScl = (path.size() > 6)? 255/path.size() : 30;
+			g.setColor(new Color(red,green,blue));			
+			g.fillRect((int) path.get(pathStep).getX() * size, (int) path.get(pathStep).getY() * size, size, size);
+			if(pathStep > 0){
+				red -= colScl;
+				blue += colScl;
+				pathStep--;
+			}
 		}else if(pointInitialized){
-			//g.drawString(numSteps[ri][ci] + "", (ci * xScl) + 2, (ri * yScl) + 10);
-			
-			//initializes open blocks around goal with 1 step
-			for(int adj = -1; adj <= 1; adj += 2){ 
-				if(ri + adj >= 0 && ri + adj < size && numSteps[ri+adj][ci] == 0){
-					numSteps[ri+adj][ci]++;
-					//g.fillRect(ci * xScl, (ri + adj) * yScl, xScl, yScl);
-					//g.drawString(numSteps[ri+adj][ci] + "", (ci * xScl) + 5, ((ri + adj) * yScl) + 10);
-				}
-				if(ci + adj >= 0 && ci + adj < size && numSteps[ri][ci+adj] == 0){
-					numSteps[ri][ci+adj]++;
-					//g.fillRect((ci + adj) * xScl, ri * yScl, xScl, yScl);
-					//g.drawString(numSteps[ri][ci+adj] + "", ((ci + adj) * xScl) + 2, (ri * yScl) + 10);
-				}
-			}
-			
-			for(int it = 0; it < size * size; it++){
-				//temporarily stores coordinates with n steps
-				for(int i=0; i<size; i++){
-				for(int j=0; j<size; j++){ 
-					if(numSteps[i][j] == steps) recentGen.add(new Point (i,j));
-				} 
-				}
-				
-				steps++;
-				
-				//if adjacent blocks to n blocks are open, update them with n+1 steps
-				for(Point block: recentGen){ 
-				int x = (int) block.getX(), y = (int) block.getY();	
-				for(int adj = -1; adj <= 1; adj += 2){ 
-					if(x + adj >= 0 && x + adj < size && numSteps[x + adj][y] == 0 && !(x + adj == ri && y == ci)){ 
-						numSteps[x + adj][y] = steps;
-						//g.drawString(numSteps[x + adj][y] + "", (y * xScl) + 2, ((x + adj) * yScl) + 10);
-						
-					}
-					if(y + adj >= 0 && y + adj < size && numSteps[x][y + adj] == 0 && !(x == ri && y + adj == ci)){ 
-						numSteps[x][y + adj] = steps;
-						//g.drawString(numSteps[x][y + adj] + "", ((y + adj) * xScl) + 2, (x * yScl) + 10);
-						
-					}
-				} 
-				}
-				recentGen.clear();
-			}
-			
-			int r = rf;
-			int c = cf;
-			path.add(new Point(c, r));
-			for(int currentStep = numSteps[rf][cf]; currentStep > 0; currentStep--){
-				for(int adj = -1; adj <= 1; adj += 2){ 
-					if(r + adj >= 0 && r + adj < size && numSteps[r + adj][c] == currentStep - 1){
-						r += adj;
-						path.add(new Point(c, r));
-					}
-					if(c + adj >= 0 && c + adj < size && numSteps[r][c + adj] == currentStep - 1){
-						c += adj;
-						path.add(new Point(c, r));
-					}
-				}
-			}
-			pathStep = path.size() - 1;
-			colScl = (path.size() > 6)? 255/path.size() : 30;
-			if (path.size() > 1) timer.start();
-		}else if(userInputMaze && inputMaze){
+			generatePath();
+		}else if(userInputMaze){
+			//mazePt updated with each new generated point
 			g.setColor(Color.gray);
-			g.fillRect(inputMazeX, inputMazeY, xScl, yScl);
+			g.fillRect(mazePt[0], mazePt[1], size, size);
 		}else if(!userInputMaze){
+			//indicate walls in numSteps w/ -1
 			g.setColor(Color.gray);
-			for(int r = 0; r < size; r++){ 
-			for(int c = 0; c < size; c++){ 
+			for(int r = 0; r < getWidth() / size; r++){ 
+			for(int c = 0; c < getHeight() / size; c++){ 
 				int numOnes = 0;
 				String binary = Integer.toBinaryString(c*c + 3*c + 2*c*r + r + r*r + seed); //binary form of seed equation
 				numOnes = binary.replaceAll("0", "").length(); //calculates # of 1's in binary string
 				if(numOnes % 2 == 0) numSteps[r][c] = 0; //if # of 1's is equal, block is open space
 				else{ //if # of 1's is odd, block is wall
 					numSteps[r][c] = -1; 
-					g.fillRect(c * xScl, r * yScl, xScl, yScl);
+					g.fillRect(c * size, r * size, size, size);
 				}
 			} 
 			}
@@ -132,48 +69,100 @@ public class MazeSolver extends JApplet implements MouseListener, MouseMotionLis
 
 	@Override
 	public void mouseClicked(MouseEvent click) {
-		int inputX = click.getX();
-		int inputY = click.getY();
-		inputSearch: 
-		for(int x = 0; x < getWidth() - xScl; x += xScl){
-		for(int y = 0; y < getHeight() - yScl; y += yScl){
-			if( (inputX >= x && inputX < x + xScl) && (inputY >= y && inputY < y + yScl) ){
-				if(input % 2 == 0){
-					ri = y / yScl; 
-					ci = x / xScl;
-				}else{
-					rf = y / yScl; 
-					cf = x / xScl;
-				}
-				break inputSearch;
-			}
-		}
-		}
-		if(input % 2 != 0){
-			pointInitialized = true;
-			repaint();
-		}
+		renderInput(click, false);
+		if(input % 2 != 0) pointInitialized = true;
 		input++;
 	}
 
 	@Override
 	public void mouseDragged(MouseEvent click) {
-		int inputX = click.getX();
-		int inputY = click.getY();
+		userInputMaze = true;
+		renderInput(click, true);
+	}
+	
+	public void renderInput(MouseEvent click, boolean isMaze){
+		int inputX = click.getX(), inputY = click.getY();
+		
 		inputSearch: 
-		for(int x = 0; x < getWidth() - xScl; x += xScl){
-		for(int y = 0; y < getHeight() - yScl; y += yScl){
-			if( (inputX >= x && inputX < x + xScl) && (inputY >= y && inputY < y + yScl) ){
-				numSteps[y/yScl][x/xScl] = -1;
-				inputMazeX = x;
-				inputMazeY = y;
-				break inputSearch;
+			for(int x = 0; x < getWidth(); x += size){
+			for(int y = 0; y < getHeight(); y += size){
+				if( (inputX >= x && inputX < x + size) && (inputY >= y && inputY < y + size) ){
+					if(isMaze){
+						numSteps[y/size][x/size] = -1;
+						mazePt[0] = x;
+						mazePt[1] = y;
+					}else{
+						if(input % 2 == 0){
+							pi[0] = y / size;
+							pi[1] = x / size; 
+						}else{
+							pf[0] = y / size;
+							pf[1] = x / size;
+						}
+					}
+					break inputSearch;
+				}
 			}
-		}
+			}
+		
+		repaint();
+		
+	}
+	
+	public void generatePath(){
+		int steps = 1;
+		ArrayList<Point> recentGen = new ArrayList<Point>();
+		
+		//initializes open blocks around goal with 1 step
+		for(int adj = -1; adj <= 1; adj += 2){ 
+			if(pi[0] + adj >= 0 && pi[0] + adj < numSteps[0].length && numSteps[pi[0]+adj][pi[1]] == 0) numSteps[pi[0]+adj][pi[1]]++;
+			if(pi[1] + adj >= 0 && pi[1] + adj < numSteps[1].length && numSteps[pi[0]][pi[1]+adj] == 0) numSteps[pi[0]][pi[1]+adj]++;
 		}
 		
-		if(inputMaze == false) inputMaze = true;
-		repaint();
+		for(int iterations = 0; iterations < getWidth()/size * getHeight()/size; iterations++){
+			
+			//temporarily stores coordinates with n steps
+			for(int i=0; i<numSteps[0].length; i++){
+			for(int j=0; j<numSteps[1].length; j++){ 
+				if(numSteps[i][j] == steps) recentGen.add(new Point (i,j));
+			} 
+			}
+			
+			steps++;
+			
+			//if adjacent blocks to n blocks are open, update them with n+1 steps
+			for(Point block: recentGen){
+				int x = (int) block.getX(), y = (int) block.getY();	
+				for(int adj = -1; adj <= 1; adj += 2){ 
+					if(x + adj >= 0 && x + adj < numSteps[0].length && numSteps[x + adj][y] == 0 && !(x + adj == pi[0] && y == pi[1])){ 
+						numSteps[x + adj][y] = steps;
+					}
+					if(y + adj >= 0 && y + adj < numSteps[1].length && numSteps[x][y + adj] == 0 && !(x == pi[0] && y + adj == pi[1])){ 
+						numSteps[x][y + adj] = steps;						
+					}
+				} 
+			}
+			recentGen.clear();
+		}
+		
+		int r = pf[0], c = pf[1];
+		path.add(new Point(c, r)); //initialize path with ending point
+		for(int currentStep = numSteps[pf[0]][pf[1]]; currentStep > 0; currentStep--){
+			for(int adj = -1; adj <= 1; adj += 2){
+				//trace path from ending point with greatest number of steps, down to initial point at zero
+				if(r + adj >= 0 && r + adj < numSteps[0].length && numSteps[r + adj][c] == currentStep - 1){
+					r += adj;
+					path.add(new Point(c, r));
+				}
+				if(c + adj >= 0 && c + adj < numSteps[1].length && numSteps[r][c + adj] == currentStep - 1){
+					c += adj;
+					path.add(new Point(c, r));
+				}
+			}
+		}
+		
+		pathStep = path.size() - 1;
+		new Timer((int) (delayInSeconds * 1000), this).start();
 	}
 	
 	public void mouseEntered(MouseEvent arg0) {} public void mouseExited(MouseEvent arg0) {}	
