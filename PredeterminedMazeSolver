@@ -13,10 +13,7 @@ import java.util.Random;
 import javax.swing.JApplet;
 import javax.swing.Timer;
 
-public class PredeterminedMazeSolver extends JApplet implements MouseListener, MouseMotionListener, ComponentListener{
-	static final long serialVersionUID = 1L;
-	Timer timer;
-	ActionListener listener;
+public class PredeterminedMazeSolver extends JApplet implements ActionListener, MouseListener, MouseMotionListener, ComponentListener{
 	ArrayList<Point> path = new ArrayList<Point>();
 	int size = 10, seed = 1352, red = (int) (127+127*Math.cos(0)), green, blue = (int) (127+127*Math.sin(0)), θ = 0, input = 0, pathStep, pointsInput = 0, rows, columns;
 	int[] mazePt = {0,0}, pi = {0,0}, pf = {0,0};
@@ -29,11 +26,15 @@ public class PredeterminedMazeSolver extends JApplet implements MouseListener, M
 		addMouseListener(this);
 		addMouseMotionListener(this);
 		addComponentListener(this);
-		listener = new ActionListener() { @Override public void actionPerformed(ActionEvent e) { animateMotion = true; repaint(); } };    
-	    timer = new Timer((int) (delayInSeconds * 1000), listener);
 	    rows = getHeight()/size;
 	    columns = getWidth()/size;
 	    numSteps = new int[rows][columns];
+	}
+	
+	@Override
+	public void actionPerformed(ActionEvent e) { 
+		animateMotion = true; 
+		repaint(); 
 	}
 	
 	@Override
@@ -48,11 +49,8 @@ public class PredeterminedMazeSolver extends JApplet implements MouseListener, M
 				pathStep--;
 			}
 			θ += (Math.PI/3);
-		}else if(pointsInput == 2){
-			findShortestPath();
-		}else if(pointsInput == 0){
-			generateMaze(g);
-		}
+		}else if(pointsInput == 2)	findShortestPath();
+		else if(pointsInput == 0)	generateMaze(g);
 	}
 
 	public void generateMaze(Graphics g){
@@ -179,7 +177,7 @@ public class PredeterminedMazeSolver extends JApplet implements MouseListener, M
 		}
 		
 		pathStep = path.size() - 1;
-		timer.start();
+		new Timer((int) (delayInSeconds * 1000), this).start();
 	}
 	
 	public void assignStepCount(){
